@@ -3,157 +3,152 @@ package me.petrolingus.des;
 import javafx.scene.control.TextArea;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.BitSet;
-import java.util.List;
+import java.util.*;
 
 public class Controller {
 
     public TextArea plainTextArea;
-
     public TextArea cipherTextArea;
-
     public TextArea keyTextArea;
 
-    private BitSet key;
-
     public void initialize() {
-        onGenerateKeyButton();
     }
 
     public void onGenerateKeyButton() {
-        key = generateKey();
-        keyTextArea.setText(Base64.getEncoder().encodeToString(key.toByteArray()));
+        keyTextArea.setText(Base64.getEncoder().encodeToString(Keygen.generateKey().toByteArray()));
     }
 
     public void onEncodeButton() {
 
+        // Получаем байты из исходного текста
         byte[] bytes = plainTextArea.getText().getBytes(StandardCharsets.UTF_8);
 
-        List<BitSet> plainBitSet = new ArrayList<>();
+        // Создаем лист в котором будут хранится блоки для последущего шифрования
+        List<BitSet> blocks = new ArrayList<>();
 
+        // Разделяем массив байт на блоки по 8 байт и добаляем в blocks
         for (int i = 0; i < bytes.length / 8; i++) {
-            byte[] rowBytes = new byte[8];
-            System.arraycopy(bytes, i * 8, rowBytes, 0, 8);
-            plainBitSet.add(BitSet.valueOf(rowBytes));
-        }
-        byte[] rowBytes = new byte[8];
-        System.arraycopy(bytes, 8 * (bytes.length / 8), rowBytes, 0, bytes.length % 8);
-        plainBitSet.add(BitSet.valueOf(rowBytes));
-
-        System.out.println(plainBitSet);
-
-        StringBuilder stringBuilder = new StringBuilder();
-        for (BitSet bitSet : plainBitSet) {
-            stringBuilder.append(Base64.getEncoder().encodeToString(encrypt(bitSet).toByteArray()));
+            byte[] block = new byte[8];
+            System.arraycopy(bytes, i * 8, block, 0, 8);
+            blocks.add(BitSet.valueOf(block));
         }
 
-        cipherTextArea.setText(stringBuilder.toString());
+        // Добавляем оставшиеся биты, если они есть
+        if (bytes.length % 8 != 0) {
+            System.out.println("ssd");
+            byte[] block = new byte[8];
+            System.arraycopy(bytes, 8 * (bytes.length / 8), block, 0, bytes.length % 8);
+            blocks.add(BitSet.valueOf(block));
+        }
+
+        // Создаем обьект для генераии ключей
+        Keygen keygen = new Keygen(keyTextArea.getText());
+
+        List<Byte> cipherBytesArray = new ArrayList<>();
+
+        // Шифруем блоки из blocks
+        for (BitSet bitSet : blocks) {
+            BitSet cipherBlock = encrypt(bitSet, keygen);
+            for (Byte b : cipherBlock.toByteArray()) {
+                cipherBytesArray.add(b);
+            }
+        }
+
+        byte[] cipherBytes = new byte[cipherBytesArray.size()];
+        for (int i = 0; i < cipherBytes.length; i++) {
+            cipherBytes[i] = cipherBytesArray.get(i);
+        }
+
+        cipherTextArea.setText(Base64.getEncoder().encodeToString(cipherBytes));
     }
 
     public void onDecodeButton() {
 
-        String text = plainTextArea.getText();
-
-        List<BitSet> cipherBitSet = new ArrayList<>();
-
-        StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
-            stringBuilder.append(ch);
-            if (ch == '=') {
-                cipherBitSet.add(BitSet.valueOf(Base64.getDecoder().decode(stringBuilder.toString())));
-                stringBuilder = new StringBuilder();
-            }
-        }
-
-        System.out.println(cipherBitSet);
-
-        StringBuilder builder = new StringBuilder();
-        for (BitSet bitSet : cipherBitSet) {
-            builder.append(new String(decode(bitSet).toByteArray()));
-        }
-
-        cipherTextArea.setText(builder.toString());
+//        String text = plainTextArea.getText();
+//
+//        List<BitSet> cipherBitSet = new ArrayList<>();
+//
+//        StringBuilder stringBuilder = new StringBuilder();
+//        for (int i = 0; i < text.length(); i++) {
+//            char ch = text.charAt(i);
+//            stringBuilder.append(ch);
+//            if (ch == '=') {
+//                cipherBitSet.add(BitSet.valueOf(Base64.getDecoder().decode(stringBuilder.toString())));
+//                stringBuilder = new StringBuilder();
+//            }
+//        }
+//
+//        System.out.println(cipherBitSet);
+//
+//        StringBuilder builder = new StringBuilder();
+//        for (BitSet bitSet : cipherBitSet) {
+//            builder.append(new String(decode(bitSet).toByteArray()));
+//        }
     }
 
-    public void onInputChangeKeyTextArea() {
-        System.out.println("Key was changed");
-        key = BitSet.valueOf(Base64.getDecoder().decode(keyTextArea.getText()));
-    }
-
-    private BitSet decode(BitSet bitSet) {
+    /**
+     * Encrypt the passed 65 bits block
+     * @param plainBits - bits of message data
+     * @param keygen - contain Keygen object with keys
+     * @return - cipher 64 bits block
+     */
+    private static BitSet encrypt(BitSet plainBits, Keygen keygen) {
 
         // Начальная перестановка
-        BitSet initialPermutationBitSet = new BitSet(64);
-        for (int i = 0; i < 64; i++) {
-            initialPermutationBitSet.set(i, bitSet.get(Utils.IP[i]));
-        }
+        BitSet initialPermutedBits = permuteBits(plainBits, Utils.IP);
 
         // Делим начальный набор битов на две половины
-        BitSet rightBitSet = initialPermutationBitSet.get(0, 32);
-        BitSet leftBitSet = initialPermutationBitSet.get(32, 64);
-
-        for (int i = 15; i >= 0; i--) {
-            BitSet buffer = BitSet.valueOf(rightBitSet.toByteArray());
-            leftBitSet.xor(f(rightBitSet, getKey(i)));
-            rightBitSet = BitSet.valueOf(leftBitSet.toByteArray());
-            leftBitSet = BitSet.valueOf(buffer.toByteArray());
-        }
-
-        BitSet lr = new BitSet(64);
-        for (int i = 0; i < 32; i++) {
-            lr.set(i + 32, rightBitSet.get(i));
-            lr.set(i, leftBitSet.get(i));
-        }
-
-        BitSet result = new BitSet(64);
-        for (int i = 0; i < 64; i++) {
-            result.set(i, lr.get(Utils.IIP[i]));
-        }
-
-        return result;
-    }
-
-    private BitSet encrypt(BitSet bitSet) {
-
-        // Начальная перестановка
-        BitSet initialPermutationBitSet = new BitSet(64);
-        for (int i = 0; i < 64; i++) {
-            initialPermutationBitSet.set(i, bitSet.get(Utils.IP[i]));
-        }
-
-        // Делим начальный набор битов на две половины
-        BitSet rightBitSet = initialPermutationBitSet.get(0, 32);
-        BitSet leftBitSet = initialPermutationBitSet.get(32, 64);
+        BitSet rightBits = initialPermutedBits.get(0, 32);
+        BitSet leftBits = initialPermutedBits.get(32, 64);
 
         for (int i = 0; i < 16; i++) {
-            BitSet buffer = BitSet.valueOf(rightBitSet.toByteArray());
-            leftBitSet.xor(f(rightBitSet, getKey(i)));
-            rightBitSet = BitSet.valueOf(leftBitSet.toByteArray());
-            leftBitSet = BitSet.valueOf(buffer.toByteArray());
+            leftBits.xor(f(rightBits, keygen.getKey(i)));
+            BitSet rightBits2 = BitSet.valueOf(leftBits.toByteArray());
+            BitSet leftBits2 = BitSet.valueOf(rightBits.toByteArray());
+            rightBits = rightBits2;
+            leftBits = leftBits2;
         }
 
-        BitSet lr = new BitSet(64);
-        for (int i = 0; i < 32; i++) {
-            lr.set(i + 32, rightBitSet.get(i));
-            lr.set(i, leftBitSet.get(i));
+        BitSet result = combineBitSets(leftBits, rightBits);
+
+        return permuteBits(result, Utils.IIP);
+    }
+
+    private static BitSet decrypt(BitSet cipherBits, Keygen keygen) {
+
+        // Начальная перестановка
+        BitSet initialPermutedBits = permuteBits(cipherBits, Utils.IP);
+
+        // Делим начальный набор битов на две половины
+        BitSet rightBits = initialPermutedBits.get(0, 32);
+        BitSet leftBits = initialPermutedBits.get(32, 64);
+
+        for (int i = 15; i >= 0; i--) {
+            BitSet rightBits2 = BitSet.valueOf(leftBits.toByteArray());
+            rightBits.xor(f(leftBits, keygen.getKey(i)));
+            BitSet leftBits2 = BitSet.valueOf(rightBits.toByteArray());
+            rightBits = rightBits2;
+            leftBits = leftBits2;
         }
 
+        BitSet result = combineBitSets(leftBits, rightBits);
+
+        return permuteBits(result, Utils.IIP);
+    }
+
+    private static BitSet permuteBits(BitSet bitSet, int[] permutations) {
         BitSet result = new BitSet(64);
         for (int i = 0; i < 64; i++) {
-            result.set(i, lr.get(Utils.IIP[i]));
+            result.set(i, bitSet.get(permutations[i] - 1));
         }
-
         return result;
     }
 
-    private BitSet f(BitSet right, BitSet key) {
+    private static BitSet f(BitSet rightBitSet, BitSet key) {
 
         BitSet expendedRight = new BitSet(48);
         for (int i = 0; i < 48; i++) {
-            expendedRight.set(i, right.get(Utils.E[i]));
+            expendedRight.set(i, rightBitSet.get(Utils.E[i] - 1));
         }
 
         expendedRight.xor(key);
@@ -170,10 +165,9 @@ public class Controller {
             int row = (twoBitsBlock.length() == 0) ? 0 : twoBitsBlock.toByteArray()[0];
 
             BitSet fourBitsBlock = sixBitsBlock.get(1, 5);
-
             int column = (fourBitsBlock.length() == 0) ? 0 : fourBitsBlock.toByteArray()[0];
 
-            byte value = (byte)(Utils.bigTable[7 - i][row][column]);
+            byte value = (byte) (Utils.bigTable[7 - i][row][column]);
             BitSet result = BitSet.valueOf(new byte[]{value});
 
             for (int j = 0; j < 4; j++) {
@@ -183,54 +177,19 @@ public class Controller {
 
         BitSet result = new BitSet(32);
         for (int i = 0; i < 32; i++) {
-            result.set(i, temp.get(Utils.P[i]));
+            result.set(i, temp.get(Utils.P[i] - 1));
         }
 
         return result;
     }
 
-    private BitSet getKey(int shiftId) {
-
-        BitSet c = new BitSet(28);
-        for (int i = 0; i < 28; i++) {
-            int id = (i + Utils.S[shiftId]) % 28;
-            c.set(i, key.get(Utils.C_ZERO[id]));
+    private static BitSet combineBitSets(BitSet leftBits, BitSet rightBits) {
+        BitSet result = new BitSet(64);
+        for (int i = 0; i < 32; i++) {
+            result.set(i, rightBits.get(i));
+            result.set(i + 32, leftBits.get(i));
         }
-
-        BitSet d = new BitSet(28);
-        for (int i = 0; i < 28; i++) {
-            int id = (i + Utils.S[shiftId]) % 28;
-            d.set(i, key.get(Utils.D_ZERO[id]));
-        }
-
-        BitSet cd = new BitSet(56);
-        for (int i = 0; i < 28; i++) {
-            cd.set(i, d.get(i));
-            cd.set(i + 28, c.get(i));
-        }
-
-        BitSet result = new BitSet(48);
-        for (int i = 0; i < 48; i++) {
-            result.set(i, cd.get(Utils.IP_KEY[i]));
-        }
-
         return result;
     }
 
-    private BitSet generateKey() {
-
-        BitSet key = new BitSet(64);
-
-        for (int i = 0; i < 8; i++) {
-            int counter = 0;
-            for (int j = 0; j < 7; j++) {
-                boolean value = 0.5 < Math.random();
-                key.set(8 * i + j, value);
-                counter += value ? 1 : 0;
-            }
-            key.set(8 * i + 7, counter % 2 == 0);
-        }
-
-        return key;
-    }
 }

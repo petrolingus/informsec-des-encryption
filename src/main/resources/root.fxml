@@ -113,7 +113,7 @@
                   <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onGenerateKeyButton" text="Generate Key" />
                </children>
             </VBox>
-            <TextArea fx:id="keyTextArea" onKeyTyped="#onInputChangeKeyTextArea" prefHeight="0.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+            <TextArea fx:id="keyTextArea" prefHeight="0.0" text="kRCApKhJPaE=" GridPane.columnIndex="1" GridPane.rowIndex="1">
                <font>
                   <Font name="JetBrains Mono Regular" size="24.0" />
                </font>

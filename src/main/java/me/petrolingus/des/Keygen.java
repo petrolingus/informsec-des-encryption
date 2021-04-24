@@ -75,4 +75,21 @@ public class Keygen {
         }
         return result;
     }
+
+    public static BitSet generateKey() {
+
+        BitSet key = new BitSet(64);
+
+        for (int i = 0; i < 8; i++) {
+            int counter = 0;
+            for (int j = 0; j < 7; j++) {
+                boolean value = 0.5 < Math.random();
+                key.set(8 * i + j, value);
+                counter += value ? 1 : 0;
+            }
+            key.set(8 * i + 7, counter % 2 == 0);
+        }
+
+        return key;
+    }
 }
