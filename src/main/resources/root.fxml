@@ -108,14 +108,14 @@
             </TextArea>
             <VBox spacing="4.0" GridPane.rowIndex="1">
                <children>
-                  <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onEncodeButton" text="Encode" />
-                  <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onDecodeButton" text="Decode" />
+                  <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onEncodeButton" text="Encrypt" />
+                  <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onDecodeButton" text="Decrypt" />
                   <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onGenerateKeyButton" text="Generate Key" />
                </children>
             </VBox>
             <TextArea fx:id="keyTextArea" onKeyTyped="#onInputChangeKeyTextArea" prefHeight="0.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
                <font>
-                  <Font size="24.0" />
+                  <Font name="JetBrains Mono Regular" size="24.0" />
                </font>
             </TextArea>
          </children>
