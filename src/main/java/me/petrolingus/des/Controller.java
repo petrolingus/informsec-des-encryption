@@ -2,6 +2,9 @@ package me.petrolingus.des;
 
 import javafx.scene.control.TextArea;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -10,6 +13,8 @@ public class Controller {
     public TextArea plainTextArea;
     public TextArea cipherTextArea;
     public TextArea keyTextArea;
+
+    public byte[] temp;
 
     public void initialize() {
     }
@@ -35,62 +40,80 @@ public class Controller {
 
         // Добавляем оставшиеся биты, если они есть
         if (bytes.length % 8 != 0) {
-            System.out.println("ssd");
             byte[] block = new byte[8];
-            System.arraycopy(bytes, 8 * (bytes.length / 8), block, 0, bytes.length % 8);
+            System.arraycopy(bytes, bytes.length - (bytes.length % 8), block, 0, bytes.length % 8);
             blocks.add(BitSet.valueOf(block));
         }
 
         // Создаем обьект для генераии ключей
         Keygen keygen = new Keygen(keyTextArea.getText());
 
-        List<Byte> cipherBytesArray = new ArrayList<>();
+        BitSet cipherBits = new BitSet();
+
+        int blocksCounter = 0;
 
         // Шифруем блоки из blocks
         for (BitSet bitSet : blocks) {
             BitSet cipherBlock = encrypt(bitSet, keygen);
+            for (int i = 0; i < 64; i++) {
+                cipherBits.set(i + 64 * blocksCounter, cipherBlock.get(i));
+            }
+            blocksCounter++;
+        }
+
+        // Выводим зашифрованную последовательность байт в кодировке Base64
+        byte[] encode = Base64.getEncoder().encode(cipherBits.toByteArray());
+        cipherTextArea.setText(new String(encode));
+    }
+
+    public void onDecodeButton() throws IOException {
+
+        byte[] cipherBytes = Base64.getDecoder().decode(plainTextArea.getText().getBytes(StandardCharsets.UTF_8));
+        System.out.println(Arrays.toString(cipherBytes));
+        System.out.println(cipherBytes.length);
+
+        List<BitSet> blocks = new ArrayList<>();
+
+        File encryptBlocks = new File("C:\\Users\\Petrolingus\\Desktop\\encryptBlocks2.txt");
+        FileWriter writer = new FileWriter(encryptBlocks);
+
+        for (int i = 0; i < cipherBytes.length / 8; i++) {
+            byte[] block = new byte[8];
+            System.arraycopy(cipherBytes, i * 8, block, 0, 8);
+            BitSet bitSet = BitSet.valueOf(block);
+            blocks.add(bitSet);
+            writer.write(bitSet + "\n");
+        }
+
+        writer.close();
+
+        // Создаем обьект для генераии ключей
+        Keygen keygen = new Keygen(keyTextArea.getText());
+
+        List<Byte> decipherBytesArray = new ArrayList<>();
+
+        for (BitSet bitSet : blocks) {
+            BitSet cipherBlock = decrypt(bitSet, keygen);
             for (Byte b : cipherBlock.toByteArray()) {
-                cipherBytesArray.add(b);
+                decipherBytesArray.add(b);
             }
         }
 
-        byte[] cipherBytes = new byte[cipherBytesArray.size()];
-        for (int i = 0; i < cipherBytes.length; i++) {
-            cipherBytes[i] = cipherBytesArray.get(i);
+        // Получаем массив типа byte из листа cipherBytesArray
+        byte[] decipherBytes = new byte[decipherBytesArray.size()];
+        for (int i = 0; i < decipherBytes.length; i++) {
+            decipherBytes[i] = decipherBytesArray.get(i);
         }
 
-        cipherTextArea.setText(Base64.getEncoder().encodeToString(cipherBytes));
-    }
-
-    public void onDecodeButton() {
-
-//        String text = plainTextArea.getText();
-//
-//        List<BitSet> cipherBitSet = new ArrayList<>();
-//
-//        StringBuilder stringBuilder = new StringBuilder();
-//        for (int i = 0; i < text.length(); i++) {
-//            char ch = text.charAt(i);
-//            stringBuilder.append(ch);
-//            if (ch == '=') {
-//                cipherBitSet.add(BitSet.valueOf(Base64.getDecoder().decode(stringBuilder.toString())));
-//                stringBuilder = new StringBuilder();
-//            }
-//        }
-//
-//        System.out.println(cipherBitSet);
-//
-//        StringBuilder builder = new StringBuilder();
-//        for (BitSet bitSet : cipherBitSet) {
-//            builder.append(new String(decode(bitSet).toByteArray()));
-//        }
+        // Выводим зашифрованную последовательность байт в кодировке Base64
+        cipherTextArea.setText(new String(decipherBytes));
     }
 
     /**
      * Encrypt the passed 65 bits block
-     * @param plainBits - bits of message data
-     * @param keygen - contain Keygen object with keys
-     * @return - cipher 64 bits block
+     * @param plainBits bits of message data
+     * @param keygen contain Keygen object with keys
+     * @return cipher 64 bits block
      */
     private static BitSet encrypt(BitSet plainBits, Keygen keygen) {
 
