@@ -14,8 +14,6 @@ public class Controller {
     public TextArea cipherTextArea;
     public TextArea keyTextArea;
 
-    public byte[] temp;
-
     public void initialize() {
     }
 
