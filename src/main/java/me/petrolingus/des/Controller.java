@@ -64,7 +64,7 @@ public class Controller {
         cipherTextArea.setText(new String(encode));
     }
 
-    public void onDecodeButton() throws IOException {
+    public void onDecodeButton() {
 
         byte[] cipherBytes = Base64.getDecoder().decode(plainTextArea.getText().getBytes(StandardCharsets.UTF_8));
         System.out.println(Arrays.toString(cipherBytes));
@@ -72,18 +72,12 @@ public class Controller {
 
         List<BitSet> blocks = new ArrayList<>();
 
-        File encryptBlocks = new File("C:\\Users\\Petrolingus\\Desktop\\encryptBlocks2.txt");
-        FileWriter writer = new FileWriter(encryptBlocks);
-
         for (int i = 0; i < cipherBytes.length / 8; i++) {
             byte[] block = new byte[8];
             System.arraycopy(cipherBytes, i * 8, block, 0, 8);
             BitSet bitSet = BitSet.valueOf(block);
             blocks.add(bitSet);
-            writer.write(bitSet + "\n");
         }
-
-        writer.close();
 
         // Создаем обьект для генераии ключей
         Keygen keygen = new Keygen(keyTextArea.getText());
@@ -104,7 +98,7 @@ public class Controller {
         }
 
         // Выводим зашифрованную последовательность байт в кодировке Base64
-        cipherTextArea.setText(new String(decipherBytes));
+        cipherTextArea.setText(new String(decipherBytes, StandardCharsets.UTF_8));
     }
 
     /**
