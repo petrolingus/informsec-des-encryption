@@ -64,8 +64,6 @@ public class Controller {
     public void onDecodeButton() {
 
         byte[] cipherBytes = Base64.getDecoder().decode(plainTextArea.getText().getBytes(StandardCharsets.UTF_8));
-        System.out.println(Arrays.toString(cipherBytes));
-        System.out.println(cipherBytes.length);
 
         List<BitSet> blocks = new ArrayList<>();
 
